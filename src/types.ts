@@ -49,7 +49,24 @@ export interface ValheimServerConfig {
   location: string;
   modded: boolean;
   modpackUrl?: string;
-  queryMode: 'live' | 'showcase';
+  queryMode: 'live' | 'showcase' | 'manual';
+}
+
+export interface ManualStatsOverrides {
+  online?: boolean;
+  ping?: number;
+  tickrate?: number;
+  currentDay?: number;
+  timeOfDay?: 'Dawn' | 'Day' | 'Dusk' | 'Night';
+  uptimeSeconds?: number;
+  cpuUsage?: number;
+  memoryUsageMb?: number;
+  memoryTotalMb?: number;
+  activePlayerCount?: number;
+  players?: Player[];
+  bosses?: BossProgress[];
+  queryError?: string;
+  customStatusBanner?: string;
 }
 
 export interface ValheimServerStatus {
@@ -89,3 +106,17 @@ export interface PlannedServer {
   votes: number;
   targetDate?: string;
 }
+
+export type UserRole = 'admin' | 'member';
+
+export interface UserAccount {
+  id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  password?: string;
+  avatarSeed?: string;
+  createdAt: string;
+  vikingClan?: string;
+}
+

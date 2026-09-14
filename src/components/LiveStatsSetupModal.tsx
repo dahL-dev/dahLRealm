@@ -12,15 +12,20 @@ import {
   Network, 
   HelpCircle,
   Activity,
-  Play
+  Play,
+  ShieldAlert,
+  Crown,
+  Sliders
 } from 'lucide-react';
 import { ValheimServerConfig } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface LiveStatsSetupModalProps {
   config: ValheimServerConfig;
   isOpen: boolean;
   onClose: () => void;
-  onSwitchMode: (mode: 'live' | 'showcase') => Promise<void>;
+  onSwitchMode: (mode: 'live' | 'showcase' | 'manual') => Promise<void>;
+  onOpenAdminStats?: () => void;
 }
 
 export const LiveStatsSetupModal: React.FC<LiveStatsSetupModalProps> = ({
@@ -28,7 +33,9 @@ export const LiveStatsSetupModal: React.FC<LiveStatsSetupModalProps> = ({
   isOpen,
   onClose,
   onSwitchMode,
+  onOpenAdminStats,
 }) => {
+  const { isAdmin, currentUser, openAuthModal } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [testHost, setTestHost] = useState(config.domain);
   const [testPort, setTestPort] = useState(String(config.queryPort));
@@ -36,6 +43,75 @@ export const LiveStatsSetupModal: React.FC<LiveStatsSetupModalProps> = ({
   const [testResult, setTestResult] = useState<any>(null);
 
   if (!isOpen) return null;
+
+  // Access Control Guard: Only admins can view and run the Live Stats configuration / probe tools
+  if (!isAdmin) {
+    return (
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+        onClick={onClose}
+      >
+        <div 
+          className="bg-[#0f1724] border border-amber-500/30 rounded-2xl w-full max-w-md shadow-2xl p-6 text-slate-100 relative overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl pointer-events-none -mr-10 -mt-10" />
+          
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-display text-base font-bold text-white">
+                Admin Setup Restricted
+              </h3>
+              <p className="text-xs text-slate-400">
+                Live Steam query configuration is only available to administrators.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 mb-5">
+            {currentUser ? (
+              <>
+                You are currently signed in as <strong className="text-white">{currentUser.username}</strong> (<span className="text-slate-400">{currentUser.role}</span>). Port inspection and A2S setup guides are reserved for the realm owner.
+              </>
+            ) : (
+              <>
+                You are not signed in. Please sign in with your administrator account to access live UDP query guides and diagnostic tools.
+              </>
+            )}
+          </p>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                onClose();
+                openAuthModal('login');
+              }}
+              className="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Sign In as Admin</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const copyText = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -109,35 +185,93 @@ export const LiveStatsSetupModal: React.FC<LiveStatsSetupModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-6 text-xs">
           
           {/* Query Mode Status Pill */}
-          <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
+          <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-slate-200 text-sm">Active Monitoring Mode:</span>
                 <span className={`px-2.5 py-0.5 rounded-full font-mono text-[11px] font-bold border ${
-                  config.queryMode === 'live'
+                  config.queryMode === 'manual'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : config.queryMode === 'live'
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                    : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                    : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                 }`}>
-                  {config.queryMode === 'live' ? '⚡ LIVE STEAM QUERY (A2S)' : '✨ SHOWCASE / DEMO MODE'}
+                  {config.queryMode === 'manual'
+                    ? '🛠️ MANUAL ADMIN OVERRIDE'
+                    : config.queryMode === 'live'
+                    ? '⚡ LIVE STEAM QUERY (A2S)'
+                    : '✨ SHOWCASE / DEMO MODE'}
                 </span>
               </div>
-              <p className="text-slate-400 mt-1 leading-relaxed">
-                {config.queryMode === 'live' 
-                  ? 'Queries your live server over UDP 2457. If the server is offline or unreachable, an alert will be displayed.'
-                  : 'Displays continuous realistic day/night cycles and simulated statistics until your live server is online.'}
-              </p>
+
+              {config.queryMode === 'manual' && onOpenAdminStats && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenAdminStats();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Open Admin Control Menu</span>
+                </button>
+              )}
             </div>
 
-            <button
-              onClick={() => onSwitchMode(config.queryMode === 'live' ? 'showcase' : 'live')}
-              className={`px-3.5 py-2 rounded-lg font-bold text-xs transition-colors shrink-0 ${
-                config.queryMode === 'live'
-                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                  : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-sm'
-              }`}
-            >
-              {config.queryMode === 'live' ? 'Switch to Showcase' : 'Activate Live Mode'}
-            </button>
+            {/* Mode selection buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <div
+                onClick={() => onSwitchMode('live')}
+                className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                  config.queryMode === 'live'
+                    ? 'bg-emerald-500/15 border-emerald-500/60 ring-1 ring-emerald-500/30 text-white'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="font-bold text-xs flex items-center gap-1.5 text-emerald-400">
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>1. Live Steam Query</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                  Direct Steam A2S socket query on port 2457 UDP.
+                </p>
+              </div>
+
+              <div
+                onClick={() => onSwitchMode('manual')}
+                className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                  config.queryMode === 'manual'
+                    ? 'bg-amber-500/15 border-amber-500/60 ring-1 ring-amber-500/30 text-white'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="font-bold text-xs flex items-center gap-1.5 text-amber-400">
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>2. Admin Control Menu</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                  Full manual control of all live stats, players, day & bosses until live queries work.
+                </p>
+              </div>
+
+              <div
+                onClick={() => onSwitchMode('showcase')}
+                className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                  config.queryMode === 'showcase'
+                    ? 'bg-indigo-500/15 border-indigo-500/60 ring-1 ring-indigo-500/30 text-white'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="font-bold text-xs flex items-center gap-1.5 text-indigo-400">
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>3. Showcase Simulation</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                  Automated realistic day/night cycles and dynamic player curves.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Interactive Live Query Tester */}

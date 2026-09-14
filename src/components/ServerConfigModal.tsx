@@ -10,9 +10,12 @@ import {
   Database,
   Users,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  ShieldAlert,
+  Crown
 } from 'lucide-react';
 import { ValheimServerConfig } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface ServerConfigModalProps {
   config: ValheimServerConfig;
@@ -27,12 +30,83 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { isAdmin, currentUser, openAuthModal } = useAuth();
   const [formData, setFormData] = useState<ValheimServerConfig>({ ...config });
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  // Access Control: If not an admin, block access with a clear message and quick sign-in prompt
+  if (!isAdmin) {
+    return (
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+        onClick={onClose}
+      >
+        <div 
+          className="bg-[#0f1724] border border-amber-500/30 rounded-2xl w-full max-w-md shadow-2xl p-6 text-slate-100 relative overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl pointer-events-none -mr-10 -mt-10" />
+          
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-display text-base font-bold text-white">
+                Admin Access Restricted
+              </h3>
+              <p className="text-xs text-slate-400">
+                Server configuration is only available to the Realm Owner.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 mb-5">
+            {currentUser ? (
+              <>
+                You are currently signed in as <strong className="text-white">{currentUser.username}</strong> (<span className="text-slate-400">{currentUser.role}</span>). To modify ports, realm name, and world settings, please sign in with the designated realm administrator account.
+              </>
+            ) : (
+              <>
+                You are not signed in. Please sign in with your administrator account to access realm ports, world seeds, and network configuration.
+              </>
+            )}
+          </p>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                onClose();
+                openAuthModal('login');
+              }}
+              className="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Sign In as Admin</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,13 +339,13 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
             <label className="block font-medium text-slate-300 font-mono uppercase text-[10px]">
               Statistics Monitoring Mode
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, queryMode: 'live' })}
-                className={`p-2.5 rounded-lg border text-left transition-colors ${
+                className={`p-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
                   formData.queryMode === 'live'
-                    ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+                    ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/30'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                 }`}
               >
@@ -281,10 +355,23 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
 
               <button
                 type="button"
+                onClick={() => setFormData({ ...formData, queryMode: 'manual' })}
+                className={`p-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
+                  formData.queryMode === 'manual'
+                    ? 'bg-amber-500/15 border-amber-500/50 text-amber-300 ring-1 ring-amber-500/30'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <div className="font-bold text-xs">🛠️ Manual Admin Override</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Extensive admin menu for all stats</div>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setFormData({ ...formData, queryMode: 'showcase' })}
-                className={`p-2.5 rounded-lg border text-left transition-colors ${
+                className={`p-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
                   formData.queryMode === 'showcase'
-                    ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
+                    ? 'bg-indigo-500/15 border-indigo-500/50 text-indigo-300 ring-1 ring-indigo-500/30'
                     : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                 }`}
               >

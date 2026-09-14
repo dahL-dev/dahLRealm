@@ -7,8 +7,11 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Activity,
-  Globe
+  Globe,
+  ShieldAlert,
+  Crown
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface PingTesterModalProps {
   defaultHost: string;
@@ -23,6 +26,7 @@ export const PingTesterModal: React.FC<PingTesterModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { isAdmin, currentUser, openAuthModal } = useAuth();
   const [host, setHost] = useState(defaultHost);
   const [port, setPort] = useState(String(defaultPort));
   const [isTesting, setIsTesting] = useState(false);
@@ -34,6 +38,75 @@ export const PingTesterModal: React.FC<PingTesterModalProps> = ({
   } | null>(null);
 
   if (!isOpen) return null;
+
+  // Access control: only admins can execute low-level ping probes
+  if (!isAdmin) {
+    return (
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+        onClick={onClose}
+      >
+        <div 
+          className="bg-[#0f1724] border border-amber-500/30 rounded-2xl w-full max-w-md shadow-2xl p-6 text-slate-100 relative overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl pointer-events-none -mr-10 -mt-10" />
+          
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-display text-base font-bold text-white">
+                Admin Tool Restricted
+              </h3>
+              <p className="text-xs text-slate-400">
+                Network diagnostic ping probes are restricted to administrators.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 mb-5">
+            {currentUser ? (
+              <>
+                You are currently signed in as <strong className="text-white">{currentUser.username}</strong> (<span className="text-slate-400">{currentUser.role}</span>). Direct ICMP/TCP probe execution requires realm admin privileges.
+              </>
+            ) : (
+              <>
+                You are not signed in. Please sign in with your administrator account to run live socket diagnostic probes.
+              </>
+            )}
+          </p>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                onClose();
+                openAuthModal('login');
+              }}
+              className="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Sign In as Admin</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleTest = async (e: React.FormEvent) => {
     e.preventDefault();

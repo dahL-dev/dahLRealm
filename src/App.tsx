@@ -29,8 +29,9 @@ import { ConnectionGuide } from './components/ConnectionGuide';
 import { ServerConfigModal } from './components/ServerConfigModal';
 import { PingTesterModal } from './components/PingTesterModal';
 import { PlannedServers } from './components/PlannedServers';
-import { GitHubExportModal } from './components/GitHubExportModal';
 import { LiveStatsSetupModal } from './components/LiveStatsSetupModal';
+import { AdminStatsControlModal } from './components/AdminStatsControlModal';
+import { AuthModal } from './components/AuthModal';
 import { ValheimServerConfig, ValheimServerStatus, PlannedServer } from './types';
 
 // Fallback initial data in case of immediate render before API responds
@@ -50,7 +51,7 @@ const fallbackConfig: ValheimServerConfig = {
   crossplayEnabled: true,
   location: 'US East (Low Latency)',
   modded: false,
-  queryMode: 'showcase',
+  queryMode: 'manual',
 };
 
 const fallbackStatus: ValheimServerStatus = {
@@ -126,8 +127,8 @@ export default function App() {
   const [isRosterOpen, setIsRosterOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isPingProbeOpen, setIsPingProbeOpen] = useState(false);
-  const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const [isLiveSetupModalOpen, setIsLiveSetupModalOpen] = useState(false);
+  const [isAdminStatsOpen, setIsAdminStatsOpen] = useState(false);
 
   // Fetch servers data from server API
   const fetchServerStats = useCallback(async () => {
@@ -151,14 +152,16 @@ export default function App() {
     }
   }, []);
 
-  // Polling effect
+  // Polling effect - paused while Admin is actively editing live stats to avoid race conditions
   useEffect(() => {
-    fetchServerStats();
-    if (refreshInterval <= 0) return;
+    if (!isAdminStatsOpen) {
+      fetchServerStats();
+    }
+    if (refreshInterval <= 0 || isAdminStatsOpen) return;
 
     const interval = setInterval(fetchServerStats, refreshInterval);
     return () => clearInterval(interval);
-  }, [fetchServerStats, refreshInterval]);
+  }, [fetchServerStats, refreshInterval, isAdminStatsOpen]);
 
   // Handle Server Configuration Save
   const handleSaveConfig = async (updated: Partial<ValheimServerConfig>) => {
@@ -206,8 +209,8 @@ export default function App() {
         onRefresh={fetchServerStats}
         onOpenConfig={() => setIsConfigOpen(true)}
         onOpenDiagnostics={() => setIsPingProbeOpen(true)}
-        onOpenGitHub={() => setIsGitHubModalOpen(true)}
         onOpenLiveSetup={() => setIsLiveSetupModalOpen(true)}
+        onOpenAdminStats={() => setIsAdminStatsOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -241,8 +244,8 @@ export default function App() {
               const el = document.getElementById('connection-guide-section');
               el?.scrollIntoView({ behavior: 'smooth' });
             }}
-            onOpenConfig={() => setIsConfigOpen(true)}
             onOpenLiveSetup={() => setIsLiveSetupModalOpen(true)}
+            onOpenAdminStats={() => setIsAdminStatsOpen(true)}
           />
         </section>
 
@@ -329,10 +332,7 @@ export default function App() {
         onClose={() => setIsPingProbeOpen(false)}
       />
 
-      <GitHubExportModal
-        isOpen={isGitHubModalOpen}
-        onClose={() => setIsGitHubModalOpen(false)}
-      />
+      <AuthModal />
 
       <LiveStatsSetupModal
         config={config}
@@ -341,6 +341,15 @@ export default function App() {
         onSwitchMode={async (mode) => {
           await handleSaveConfig({ queryMode: mode });
         }}
+        onOpenAdminStats={() => setIsAdminStatsOpen(true)}
+      />
+
+      <AdminStatsControlModal
+        isOpen={isAdminStatsOpen}
+        onClose={() => setIsAdminStatsOpen(false)}
+        config={config}
+        status={status}
+        onRefresh={fetchServerStats}
       />
 
     </div>

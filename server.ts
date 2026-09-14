@@ -25,7 +25,7 @@ let valheimConfig = {
   location: 'US East (Low Latency)',
   modded: false,
   modpackUrl: '',
-  queryMode: 'showcase' as 'live' | 'showcase',
+  queryMode: 'manual' as 'live' | 'showcase' | 'manual',
 };
 
 // Initial players online
@@ -68,6 +68,24 @@ const bossList = [
   { id: 'b6', name: 'The Queen', biome: 'Mistlands', defeated: false, trophy: 'Majestic Carapace' },
   { id: 'b7', name: 'Fader', biome: 'Ashlands', defeated: false, trophy: 'Bell Fragment' },
 ];
+
+// Admin Manual Overrides for Statistics Monitoring
+let manualStats = {
+  online: true,
+  ping: 24,
+  tickrate: 60.0,
+  uptimeSeconds: 1238492,
+  currentDay: 284,
+  timeOfDay: 'Day' as 'Dawn' | 'Day' | 'Dusk' | 'Night',
+  cpuUsage: 28,
+  memoryUsageMb: 4120,
+  memoryTotalMb: 16384,
+  activePlayerCount: 3,
+  queryError: '',
+};
+
+let manualPlayers = [...currentPlayers];
+let manualBosses = [...bossList];
 
 let serverEvents = [
   { id: 'ev-1', timestamp: '2 mins ago', type: 'join' as const, message: 'Einar_Ironbreaker woke up by the hearth fire', severity: 'info' as const },
@@ -147,7 +165,7 @@ async function startServer() {
   // Main status endpoint for dahLRealm gaming servers
   app.get('/api/servers', async (req, res) => {
     const elapsedMinutes = Math.floor((Date.now() % (86400000 * 30)) / 60000);
-    const day = 284 + Math.floor(elapsedMinutes / 30);
+    let day = 284 + Math.floor(elapsedMinutes / 30);
     const dayPhaseNumber = elapsedMinutes % 30;
     let timeOfDay: 'Dawn' | 'Day' | 'Dusk' | 'Night' = 'Day';
     if (dayPhaseNumber < 4) timeOfDay = 'Dawn';
@@ -162,9 +180,31 @@ async function startServer() {
     let realMaxPlayers = valheimConfig.maxPlayers;
     let rawA2sData: any = undefined;
     let isServerOnline = true;
+    let jitterCpu = Math.floor(22 + realPlayerCount * 3.4 + Math.random() * 3);
+    const baseMemory = 3840; // ~3.8 GB
+    let jitterMemory = baseMemory + realPlayerCount * 280 + Math.floor(Math.random() * 64);
+    let tickrate = 60.0;
+    let uptimeSeconds = 1238492;
+    let activeBosses = bossList;
+    let activePlayersList = currentPlayers;
 
-    // If queryMode is set to 'live', attempt real GameDig Steam A2S query
-    if (valheimConfig.queryMode === 'live') {
+    if (valheimConfig.queryMode === 'manual') {
+      // Admin Manual Override Mode: exact stats specified by goddahL
+      isLiveA2S = false;
+      isServerOnline = manualStats.online;
+      realPing = manualStats.ping;
+      tickrate = manualStats.tickrate;
+      uptimeSeconds = manualStats.uptimeSeconds;
+      day = manualStats.currentDay;
+      timeOfDay = manualStats.timeOfDay;
+      jitterCpu = manualStats.cpuUsage;
+      jitterMemory = manualStats.memoryUsageMb;
+      activePlayersList = isServerOnline ? manualPlayers : [];
+      realPlayerCount = isServerOnline ? manualPlayers.length : 0;
+      activeBosses = manualBosses;
+      queryError = manualStats.queryError || undefined;
+    } else if (valheimConfig.queryMode === 'live') {
+      // If queryMode is set to 'live', attempt real GameDig Steam A2S query
       try {
         const a2sResult = await GameDig.query({
           type: 'valheim',
@@ -190,7 +230,7 @@ async function startServer() {
 
         // If real players list is returned by the server
         if (a2sResult.players && a2sResult.players.length > 0) {
-          currentPlayers = a2sResult.players.map((p: any, idx: number) => ({
+          activePlayersList = a2sResult.players.map((p: any, idx: number) => ({
             id: `rp-${idx}`,
             name: p.name || `Viking_${idx + 1}`,
             steamId: p.raw?.id || undefined,
@@ -208,10 +248,6 @@ async function startServer() {
       }
     }
 
-    const jitterCpu = Math.floor(22 + realPlayerCount * 3.4 + Math.random() * 3);
-    const baseMemory = 3840; // ~3.8 GB
-    const jitterMemory = baseMemory + realPlayerCount * 280 + Math.floor(Math.random() * 64);
-
     const valheimStatus = {
       config: {
         ...valheimConfig,
@@ -223,16 +259,16 @@ async function startServer() {
         queryError,
         lastChecked: new Date().toISOString(),
         ping: realPing,
-        tickrate: 60.0,
-        uptimeSeconds: 1238492,
+        tickrate,
+        uptimeSeconds,
         currentDay: day,
         timeOfDay,
         cpuUsage: jitterCpu,
         memoryUsageMb: jitterMemory,
-        memoryTotalMb: 16384,
-        players: isServerOnline ? currentPlayers : [],
+        memoryTotalMb: manualStats.memoryTotalMb || 16384,
+        players: isServerOnline ? activePlayersList : [],
         activePlayerCount: isServerOnline ? realPlayerCount : 0,
-        bosses: bossList,
+        bosses: activeBosses,
         recentEvents: serverEvents,
         history: generateHistory(),
         rawA2sData,
@@ -313,7 +349,7 @@ async function startServer() {
     if (updates.passwordHint !== undefined) valheimConfig.passwordHint = String(updates.passwordHint).slice(0, 100);
     if (typeof updates.crossplayEnabled === 'boolean') valheimConfig.crossplayEnabled = updates.crossplayEnabled;
     if (updates.location && typeof updates.location === 'string') valheimConfig.location = updates.location.slice(0, 60);
-    if (updates.queryMode === 'live' || updates.queryMode === 'showcase') valheimConfig.queryMode = updates.queryMode;
+    if (updates.queryMode === 'live' || updates.queryMode === 'showcase' || updates.queryMode === 'manual') valheimConfig.queryMode = updates.queryMode;
 
     // Add a log event
     serverEvents.unshift({
@@ -326,6 +362,122 @@ async function startServer() {
     if (serverEvents.length > 20) serverEvents = serverEvents.slice(0, 20);
 
     return res.json({ success: true, config: valheimConfig });
+  });
+
+  // Get current manual stats state
+  app.get('/api/servers/valheim/manual-stats', (req, res) => {
+    res.json({
+      manualStats,
+      manualPlayers,
+      manualBosses,
+      queryMode: valheimConfig.queryMode,
+      config: valheimConfig,
+      serverEvents,
+    });
+  });
+
+  // Update live stats manually (Admin Control Menu)
+  app.post('/api/servers/valheim/manual-stats', (req, res) => {
+    const {
+      online,
+      ping,
+      tickrate,
+      uptimeSeconds,
+      currentDay,
+      timeOfDay,
+      cpuUsage,
+      memoryUsageMb,
+      memoryTotalMb,
+      players,
+      bosses,
+      queryError,
+      setQueryModeToManual,
+      customEventMessage,
+    } = req.body;
+
+    if (typeof online === 'boolean') manualStats.online = online;
+    if (typeof ping === 'number') manualStats.ping = Math.max(1, Math.min(999, Math.round(ping)));
+    if (typeof tickrate === 'number') manualStats.tickrate = Math.max(10, Math.min(144, tickrate));
+    if (typeof uptimeSeconds === 'number') manualStats.uptimeSeconds = Math.max(0, Math.round(uptimeSeconds));
+    if (typeof currentDay === 'number') manualStats.currentDay = Math.max(1, Math.round(currentDay));
+    if (timeOfDay && ['Dawn', 'Day', 'Dusk', 'Night'].includes(timeOfDay)) manualStats.timeOfDay = timeOfDay;
+    if (typeof cpuUsage === 'number') manualStats.cpuUsage = Math.max(0, Math.min(100, Math.round(cpuUsage)));
+    if (typeof memoryUsageMb === 'number') manualStats.memoryUsageMb = Math.max(100, Math.round(memoryUsageMb));
+    if (typeof memoryTotalMb === 'number') manualStats.memoryTotalMb = Math.max(1024, Math.round(memoryTotalMb));
+    if (typeof queryError === 'string') manualStats.queryError = queryError;
+
+    if (Array.isArray(players)) {
+      manualPlayers = players.map((p, idx) => ({
+        id: p.id || `p-man-${idx + 1}`,
+        name: p.name || `Viking_${idx + 1}`,
+        steamId: p.steamId || undefined,
+        connectedMinutes: Number(p.connectedMinutes) || 10,
+        ping: Number(p.ping) || manualStats.ping,
+        biome: p.biome || 'Meadows',
+        role: p.role || 'Viking',
+      }));
+      manualStats.activePlayerCount = manualPlayers.length;
+    }
+
+    if (Array.isArray(bosses)) {
+      manualBosses = bosses;
+    }
+
+    if (setQueryModeToManual !== false) {
+      valheimConfig.queryMode = 'manual';
+    }
+
+    // Optional event dispatch
+    if (customEventMessage) {
+      serverEvents.unshift({
+        id: `ev-${Date.now()}`,
+        timestamp: 'Just now',
+        type: req.body.customEventType || 'system',
+        message: String(customEventMessage).slice(0, 140),
+        severity: req.body.customEventSeverity || 'info',
+      });
+    } else {
+      serverEvents.unshift({
+        id: `ev-${Date.now()}`,
+        timestamp: 'Just now',
+        type: 'system',
+        message: `Admin adjusted live realm stats (Mode: Manual | ${manualStats.online ? 'Online' : 'Offline'} | ${manualPlayers.length} Vikings | Day ${manualStats.currentDay})`,
+        severity: 'info',
+      });
+    }
+    if (serverEvents.length > 25) serverEvents = serverEvents.slice(0, 25);
+
+    return res.json({
+      success: true,
+      manualStats,
+      manualPlayers,
+      manualBosses,
+      queryMode: valheimConfig.queryMode,
+      serverEvents,
+    });
+  });
+
+  // Post / delete announcements & events
+  app.post('/api/servers/valheim/events', (req, res) => {
+    const { type, message, severity } = req.body;
+    if (!message) return res.status(400).json({ error: 'Message required' });
+
+    const newEv = {
+      id: `ev-${Date.now()}`,
+      timestamp: 'Just now',
+      type: type || 'system',
+      message: String(message).slice(0, 150),
+      severity: severity || 'info',
+    };
+    serverEvents.unshift(newEv);
+    if (serverEvents.length > 25) serverEvents = serverEvents.slice(0, 25);
+    return res.json({ success: true, event: newEv, events: serverEvents });
+  });
+
+  app.delete('/api/servers/valheim/events/:id', (req, res) => {
+    const { id } = req.params;
+    serverEvents = serverEvents.filter((e) => e.id !== id);
+    return res.json({ success: true, events: serverEvents });
   });
 
   // Real Socket / DNS latency & reachability probe

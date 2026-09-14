@@ -18,17 +18,19 @@ import {
   Compass,
   Cpu,
   Activity,
-  ChevronRight
+  ChevronRight,
+  Sliders
 } from 'lucide-react';
 import { ValheimServerConfig, ValheimServerStatus } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface ValheimHeroProps {
   config: ValheimServerConfig;
   status: ValheimServerStatus;
   onOpenPlayers: () => void;
   onOpenGuide: () => void;
-  onOpenConfig: () => void;
   onOpenLiveSetup: () => void;
+  onOpenAdminStats?: () => void;
 }
 
 export const ValheimHero: React.FC<ValheimHeroProps> = ({
@@ -36,9 +38,10 @@ export const ValheimHero: React.FC<ValheimHeroProps> = ({
   status,
   onOpenPlayers,
   onOpenGuide,
-  onOpenConfig,
   onOpenLiveSetup,
+  onOpenAdminStats,
 }) => {
+  const { isAdmin } = useAuth();
   const [copied, setCopied] = useState(false);
   const [showSeed, setShowSeed] = useState(false);
 
@@ -90,17 +93,45 @@ export const ValheimHero: React.FC<ValheimHeroProps> = ({
             </span>
           )}
 
-          <button
-            onClick={onOpenLiveSetup}
-            className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium transition-colors border ${
-              config.queryMode === 'live' && status.isLiveA2S
-                ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20'
-                : 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
-            }`}
-          >
-            <span>{config.queryMode === 'live' && status.isLiveA2S ? '⚡ Steam A2S Live' : '✨ Showcase Mode'}</span>
-            <span className="text-slate-500 text-[10px] underline ml-0.5">Setup Guide</span>
-          </button>
+          {isAdmin ? (
+            <button
+              onClick={config.queryMode === 'manual' && onOpenAdminStats ? onOpenAdminStats : onOpenLiveSetup}
+              className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium transition-colors border cursor-pointer ${
+                config.queryMode === 'manual'
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                  : config.queryMode === 'live' && status.isLiveA2S
+                  ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20'
+                  : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/20'
+              }`}
+            >
+              <span>
+                {config.queryMode === 'manual' 
+                  ? '🛠️ Manual Stats Override'
+                  : config.queryMode === 'live' && status.isLiveA2S 
+                  ? '⚡ Steam A2S Live' 
+                  : '✨ Showcase Mode'}
+              </span>
+              <span className="text-slate-400 text-[10px] underline ml-0.5">Admin Menu</span>
+            </button>
+          ) : (
+            <span
+              className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium border ${
+                config.queryMode === 'manual'
+                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                  : config.queryMode === 'live' && status.isLiveA2S
+                  ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+                  : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
+              }`}
+            >
+              <span>
+                {config.queryMode === 'manual'
+                  ? '⚔️ Realm Live Telemetry'
+                  : config.queryMode === 'live' && status.isLiveA2S 
+                  ? '⚡ Steam A2S Live' 
+                  : '✨ Dedicated Realm'}
+              </span>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -121,8 +152,25 @@ export const ValheimHero: React.FC<ValheimHeroProps> = ({
         </div>
       </div>
 
-      {/* Warning banner if live query failed */}
-      {config.queryMode === 'live' && !status.isLiveA2S && (
+      {/* Manual Mode Banner - VISIBLE TO ADMIN */}
+      {isAdmin && config.queryMode === 'manual' && onOpenAdminStats && (
+        <div 
+          onClick={onOpenAdminStats}
+          className="bg-amber-500/15 border-b border-amber-500/30 px-6 py-2 flex items-center justify-between text-xs text-amber-200 cursor-pointer hover:bg-amber-500/25 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            <span className="font-bold">Manual Stats Control Mode Active:</span>
+            <span className="text-amber-300/90 hidden sm:inline">You have full admin override of all live statistics until live UDP queries are configured.</span>
+          </div>
+          <span className="font-mono text-[11px] text-amber-400 underline underline-offset-2 shrink-0">
+            Tune Live Stats →
+          </span>
+        </div>
+      )}
+
+      {/* Warning banner if live query failed - ONLY VISIBLE TO ADMINS */}
+      {isAdmin && config.queryMode === 'live' && !status.isLiveA2S && (
         <div 
           onClick={onOpenLiveSetup}
           className="bg-amber-500/15 border-b border-amber-500/30 px-6 py-2.5 flex items-center justify-between text-xs text-amber-200 cursor-pointer hover:bg-amber-500/20 transition-colors"
