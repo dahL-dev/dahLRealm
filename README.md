@@ -102,6 +102,25 @@ In the dahLRealm web portal:
 
 ---
 
+## ☁️ Deploying to Cloudflare (Workers & Pages)
+
+Yes! You can deploy this website to Cloudflare using the settings from your Cloudflare dashboard:
+
+### Settings for Cloudflare "Set up your application":
+- **Project name**: `dahlrealm`
+- **Build command**: `npm run build`
+- **Deploy command**: `npx wrangler deploy`
+- **Configuration file**: `wrangler.json` (included at the root of this project)
+
+### How It Works on Cloudflare
+- Cloudflare deploys the React frontend as static assets directly to its global CDN.
+- The included `worker.ts` handles edge API requests (`/api/servers`), day/night cycles, boss progression, and player lists.
+- **Important Note on Live Steam A2S Querying**: Cloudflare Workers runs on an edge network that only supports HTTP and outbound TCP sockets; Cloudflare edge does **not** support raw outbound UDP sockets (`dgram`). Valve's Steam A2S query protocol operates over **UDP** (port 2457 UDP).
+  - Therefore, on Cloudflare, the website runs in **Showcase & Portal Mode** (or connects to an external backend).
+  - If you want the website to continuously ping your live Valheim server over UDP, deploy the backend to any Linux VPS, Docker container, or alongside your Valheim server using `npm start`.
+
+---
+
 ## 🐳 Running with Docker
 
 You can easily run dahLRealm in Docker alongside your Valheim server:

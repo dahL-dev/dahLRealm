@@ -9,7 +9,8 @@ import {
   ExternalLink, 
   Server, 
   Cpu, 
-  CheckCircle2 
+  CheckCircle2,
+  CloudLightning
 } from 'lucide-react';
 
 interface GitHubExportModalProps {
@@ -194,6 +195,25 @@ npm start`;
             <pre className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 overflow-x-auto select-all leading-relaxed">
               {buildDeployScript}
             </pre>
+          </div>
+
+          {/* Method 4: Deploying to Cloudflare Workers / Pages */}
+          <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/30 space-y-3">
+            <div className="flex items-center gap-2 text-orange-400 font-semibold text-sm">
+              <CloudLightning className="w-4 h-4" />
+              <span>Deploying to Cloudflare (Workers & Pages)</span>
+            </div>
+            <p className="text-slate-300 leading-relaxed">
+              In Cloudflare&apos;s <strong>Set up your application</strong> screen:
+            </p>
+            <div className="p-3 rounded-lg bg-slate-950/90 border border-slate-800 font-mono text-[11px] space-y-1.5 text-slate-300">
+              <div>• <strong>Build command:</strong> <code className="text-amber-300">npm run build</code></div>
+              <div>• <strong>Deploy command:</strong> <code className="text-amber-300">npx wrangler deploy</code></div>
+              <div>• <strong>Wrangler config:</strong> <code className="text-emerald-400">wrangler.json</code> (already included in this repository!)</div>
+            </div>
+            <div className="p-2.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-[11px] leading-relaxed">
+              💡 <strong>Cloudflare UDP Note:</strong> The entire website UI, Viking rosters, guides, and edge APIs work seamlessly on Cloudflare. However, Cloudflare edge servers do not allow raw outbound UDP sockets (which Steam A2S query uses). If you want 24/7 live Steam query pings from your dedicated server, run the included <code className="text-white">server.ts</code> on a VPS or alongside your Valheim server.
+            </div>
           </div>
 
         </div>
