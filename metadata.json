@@ -1,0 +1,6 @@
+{
+  "name": "dahLRealm Gaming Servers",
+  "description": "Live statistics, telemetry, and connection portal for dahLRealm dedicated game servers, featuring the active Valheim dedicated server.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
